@@ -1,0 +1,20 @@
+name: database
+
+include:
+  - path: ../database/docker-compose.yml
+    env_file: ../database/.env
+
+services:
+  api:
+    build: .
+    container_name: steam-api
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    env_file: ../database/.env
+    environment:
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+    ports:
+      - "${PORT:-8080}:8080"
