@@ -38,7 +38,7 @@ mongoimport \
   --drop
 
 echo "[seed] creation des index..."
-mongosh "$URI" --quiet --eval "globalThis.TARGET_COLLECTION='${COLL}';" --file /seed/indexes.js
+mongosh "$URI" --quiet --eval "globalThis.TARGET_COLLECTION='${COLL}'; ''" --file /seed/indexes.js
 
 final="$(mongosh "$URI" --quiet --eval "db.getCollection('${COLL}').estimatedDocumentCount()")"
 echo "[seed] termine : ${final} documents dans ${DB}.${COLL}"
