@@ -1,0 +1,62 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: steam-mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-steam}
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Conteneur one-shot : importe steam.json puis cree les index, et s'arrete.
+  mongo-seed:
+    image: mongo:7
+    container_name: steam-mongo-seed
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
+      MONGO_DATABASE: ${MONGO_DATABASE:-steam}
+      MONGO_COLLECTION: ${MONGO_COLLECTION:-games}
+      # SEED_FORCE=1 : vide la collection et reimporte meme si elle contient deja des documents
+      SEED_FORCE: ${SEED_FORCE:-0}
+    volumes:
+      - ./steam.json/steam.json:/seed/steam.json:ro
+      - ./docker/seed.sh:/seed/seed.sh:ro
+      - ./docker/indexes.js:/seed/indexes.js:ro
+    entrypoint: ["bash", "/seed/seed.sh"]
+    restart: "no"
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: steam-mongo-express
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "${MONGO_EXPRESS_PORT:-8081}:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongodb:27017/?authSource=admin
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: "true"
+      ME_CONFIG_BASICAUTH_USERNAME: ${ME_USERNAME:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_PASSWORD:-admin}
+
+volumes:
+  mongo-data:
+  mongo-config:
