@@ -1,26 +1,21 @@
 package main
 
 import (
-	"bufio"
-	"errors"
-	"io/fs"
 	"os"
 	"strings"
 )
 
 func loadEnv(path string) error {
-	f, err := os.Open(path)
-	if errors.Is(err, fs.ErrNotExist) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -29,13 +24,11 @@ func loadEnv(path string) error {
 			continue
 		}
 		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		if len(value) >= 2 && (value[0] == '"' || value[0] == '\'') && value[len(value)-1] == value[0] {
-			value = value[1 : len(value)-1]
-		}
+		value = strings.Trim(strings.TrimSpace(value), `"'`)
 		if _, set := os.LookupEnv(key); !set {
 			os.Setenv(key, value)
 		}
 	}
-	return scanner.Err()
+	return nil
 }
+

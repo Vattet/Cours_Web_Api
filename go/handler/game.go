@@ -1,31 +1,20 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 
-	"rest-api/model"
+	"rest-api/service"
 )
 
-type GameLister interface {
-	List(ctx context.Context) ([]model.Game, error)
-}
-
-type GameHandler struct {
-	service	GameLister
-}
-
-func NewGameHandler(service GameLister) *GameHandler {
-	return &GameHandler{service: service}
-}
-
-func (h *GameHandler) List(w http.ResponseWriter, r *http.Request) {
-	games, err := h.service.List(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+func GetGames(reader service.GameReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		games, err := service.ListGames(reader)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(games)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(games)
 }

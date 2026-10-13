@@ -11,15 +11,12 @@ import (
 )
 
 type GameRepository struct {
-	collection	*mongo.Collection
+	*mongo.Collection
 }
 
-func NewGameRepository(collection *mongo.Collection) *GameRepository {
-	return &GameRepository{collection: collection}
-}
-
-func (r *GameRepository) FindAll(ctx context.Context, limit int64) ([]model.Game, error) {
-	cursor, err := r.collection.Find(ctx, bson.D{}, options.Find().SetLimit(limit))
+func (r *GameRepository) FindAll(limit int64) ([]model.Game, error) {
+	ctx := context.Background()
+	cursor, err := r.Find(ctx, bson.D{}, options.Find().SetLimit(limit))
 	if err != nil {
 		return nil, err
 	}

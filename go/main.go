@@ -4,17 +4,14 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
-	"rest-api/handler"
 	"rest-api/repository"
 	"rest-api/router"
-	"rest-api/service"
 )
 
 func getenv(key, fallback string) string {
@@ -29,13 +26,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	uri := (&url.URL{
-		Scheme:		"mongodb",
-		User:		url.UserPassword(os.Getenv("MONGO_ROOT_USERNAME"), os.Getenv("MONGO_ROOT_PASSWORD")),
-		Host:		getenv("MONGO_HOST", "localhost") + ":" + getenv("MONGO_PORT", "27017"),
-		Path:		"/",
-		RawQuery:	"authSource=admin",
-	}).String()
+	uri := "mongodb://" + os.Getenv("MONGO_ROOT_USERNAME") + ":" + os.Getenv("MONGO_ROOT_PASSWORD") +
+		"@" + getenv("MONGO_HOST", "localhost") + ":" + getenv("MONGO_PORT", "27017") + "/?authSource=admin"
 
 	client, err := mongo.Connect(options.Client().ApplyURI(uri))
 	if err != nil {
@@ -49,9 +41,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	collection := client.Database(os.Getenv("MONGO_DATABASE")).Collection(os.Getenv("MONGO_COLLECTION"))
-	games := handler.NewGameHandler(service.NewGameService(repository.NewGameRepository(collection)))
-	router.Register(games)
+	collection := client.Database(os.Getenv("MONGO_DATABASE"))
+	games := collection.Collection("games")
+	router.Routes(&repository.GameRepository{games})
 
 	log.Fatal(http.ListenAndServe(":"+getenv("PORT", "8080"), nil))
 }
