@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
@@ -21,10 +20,18 @@ func (r *GameRepository) FindAll(limit, skip int64, params map[string]string) ([
 	if err != nil {
 		return nil, err
 	}
-	opts := options.Find().SetSkip(skip).SetLimit(limit).SetSort(bson.D{{Key: "_id", Value: 1}})
+
+	sort, err := buildSort(params)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := options.Find().
+		SetSkip(skip).
+		SetLimit(limit).
+		SetSort(sort)
 
 	cursor, err := r.Find(ctx, filter, opts)
-
 	if err != nil {
 		return nil, err
 	}

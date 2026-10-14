@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,6 +25,12 @@ var rules = map[string]rule{
 	"is_free":      {"is_free", exactBool},
 	"developers":   {"developers", allOf},
 	"publishers":   {"publishers", allOf},
+}
+
+var sortable = map[string]string{
+	"title":        "title",
+	"release_year": "release_year",
+	"price":        "price",
 }
 
 func anyOfInt(value string) (any, error) {
@@ -127,4 +134,28 @@ func buildFilter(params map[string]string) (bson.D, error) {
 		filter = append(filter, bson.E{Key: r.field, Value: condition})
 	}
 	return filter, nil
+}
+
+func buildSort(params map[string]string) (bson.D, error) {
+	ordering := strings.TrimSpace(params["ordering"])
+
+	if ordering == "" {
+		return bson.D{{Key: "_id", Value: 1}}, nil
+	}
+
+	direction := 1
+	if strings.HasPrefix(ordering, "-") {
+		direction = -1
+		ordering = strings.TrimPrefix(ordering, "-")
+	}
+
+	field, ok := sortable[ordering]
+	if !ok {
+		return nil, fmt.Errorf("%w: cannot sort by %q", model.ErrInvalidFilter, ordering)
+	}
+
+	return bson.D{
+		{Key: field, Value: direction},
+		{Key: "_id", Value: 1},
+	}, nil
 }
