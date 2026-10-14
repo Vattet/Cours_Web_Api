@@ -29,8 +29,8 @@ func GetGames(reader service.GameReader) http.HandlerFunc {
 		params := map[string]string{}
 		for key, values := range query {
 			fmt.Println(values)
-			if len(values) > 0 {
-				params[key] = values[0]
+			for _, value := range values {
+				params[key] = value
 			}
 		}
 
@@ -48,8 +48,8 @@ func GetGames(reader service.GameReader) http.HandlerFunc {
 
 		page, err := service.ListGames(reader, params, limit, skip)
 
-		if errors.Is(err, model.ErrInvalidFilter) {
-			http.Error(w, "invalid filter value", http.StatusBadRequest)
+		if errors.Is(err, model.ErrInvalidFilter) { // == if(err == model.InvalidFilter)
+			http.Error(w, "invalid filter key", http.StatusBadRequest)
 			return
 		}
 		if err != nil {

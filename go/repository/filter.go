@@ -22,7 +22,7 @@ var rules = map[string]rule{
 	"platforms":    {"platforms", allOfLower},
 	"genre":        {"genres.description", anyOfName},
 	"genre_id":     {"genres.id", anyOfInt},
-	"is_free":      {"is_free", exactBool},
+	"is_free":      {"is_free", exactBool}, // 0 ou 1 | True ou False
 	"developers":   {"developers", allOf},
 	"publishers":   {"publishers", allOf},
 }
