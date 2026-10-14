@@ -2,36 +2,31 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
-	"strconv"
-	"strings"
 
+	"rest-api/model"
 	"rest-api/service"
 )
 
 func GetGames(reader service.GameReader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		title := strings.TrimSpace(r.URL.Query().Get("title"))
 
-		year := 0
-		if raw := r.URL.Query().Get("release_year"); raw != "" {
-			parsed, err := strconv.Atoi(raw)
-			if err != nil {
-				http.Error(w, "invalid release_year", http.StatusBadRequest)
-				return
+		params := map[string]string{}
+		for key, values := range r.URL.Query() {
+			if len(values) > 0 {
+				params[key] = values[0]
 			}
-			year = parsed
 		}
 
-		games, err := service.ListGames(reader, title, year)
+		games, err := service.ListGames(reader, params)
 
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		if errors.Is(err, model.ErrInvalidFilter) {
+			http.Error(w, "invalid filter value", http.StatusBadRequest)
 			return
 		}
-
-		if len(games) == 0 {
-			http.Error(w, "no games found", http.StatusNotFound)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
