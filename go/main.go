@@ -43,7 +43,10 @@ func main() {
 
 	collection := client.Database(os.Getenv("MONGO_DATABASE"))
 	games := collection.Collection("games")
-	router.Routes(&repository.GameRepository{games})
+	router.Routes(
+		&repository.GameRepository{Collection: games},
+		&repository.HealthRepository{Client: client},
+	)
 
 	log.Fatal(http.ListenAndServe(":"+getenv("PORT", "8080"), nil))
 }
