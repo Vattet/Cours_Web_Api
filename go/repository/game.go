@@ -51,7 +51,7 @@ func (r *GameRepository) FindAll(limit, skip int64, params map[string]string) ([
 func (r *GameRepository) Count(params map[string]string) (int64, error) {
 	filter, err := buildFilter(params)
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	return r.CountDocuments(context.Background(), filter)
 }

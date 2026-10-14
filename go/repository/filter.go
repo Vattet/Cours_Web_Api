@@ -111,7 +111,7 @@ func exactBool(value string) (any, error) {
 	if err != nil {
 		return nil, model.ErrInvalidFilter
 	}
-	return boolean, err
+	return boolean, nil
 }
 func allOf(value string) (any, error) {
 	return allValues(value, false)

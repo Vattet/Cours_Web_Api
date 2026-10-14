@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -27,12 +28,14 @@ func GetGames(reader service.GameReader) http.HandlerFunc {
 
 		params := map[string]string{}
 		for key, values := range query {
+			fmt.Println(values)
 			if len(values) > 0 {
 				params[key] = values[0]
 			}
 		}
 
 		limit, err := parseInt64(query.Get("limit"))
+
 		if err != nil {
 			http.Error(w, "invalid limit", http.StatusBadRequest)
 			return
