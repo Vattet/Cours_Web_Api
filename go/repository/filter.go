@@ -20,9 +20,26 @@ var rules = map[string]rule{
 	"release_year": {"release_year", exactInt},
 	"platforms":    {"platforms", allOfLower},
 	"genre":        {"genres.description", anyOfName},
+	"genre_id":     {"genres.id", anyOfInt},
 	"is_free":      {"is_free", exactBool},
 	"developers":   {"developers", allOf},
 	"publishers":   {"publishers", allOf},
+}
+
+func anyOfInt(value string) (any, error) {
+	var ids []int
+
+	for _, raw := range split(value, false) {
+		number, err := strconv.Atoi(raw)
+		if err != nil {
+			return nil, model.ErrInvalidFilter
+		}
+		ids = append(ids, number)
+	}
+	if len(ids) == 0 {
+		return nil, model.ErrInvalidFilter
+	}
+	return bson.D{{Key: "$in", Value: ids}}, nil
 }
 
 func containsIgnoreCase(value string) (any, error) {
