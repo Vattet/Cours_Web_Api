@@ -1,6 +1,8 @@
 package service
 
 import (
+	"log"
+	"math/rand/v2"
 	"net/url"
 	"strconv"
 
@@ -14,8 +16,8 @@ const (
 )
 
 type GameReader interface {
-	FindAll(limit, skip int64, params map[string]string) ([]model.Game, error)
-	Count(params map[string]string) (int64, error)
+	FindAll(limit, skip int64, params map[string]string, version model.FilterVersion) ([]model.Game, error)
+	Count(params map[string]string, version model.FilterVersion) (int64, error)
 }
 
 func ListGames(r GameReader, params map[string]string, limit, skip int64) (model.Page, error) {
@@ -31,12 +33,15 @@ func ListGames(r GameReader, params map[string]string, limit, skip int64) (model
 		skip = 0
 	}
 
-	total, err := r.Count(params)
+	version := model.FilterVersions[rand.IntN(len(model.FilterVersions))]
+	log.Printf("ListGames: filtre %s", version)
+
+	total, err := r.Count(params, version)
 	if err != nil {
 		return model.Page{}, err
 	}
 
-	games, err := r.FindAll(limit, skip, params)
+	games, err := r.FindAll(limit, skip, params, version)
 	if err != nil {
 		return model.Page{}, err
 	}
