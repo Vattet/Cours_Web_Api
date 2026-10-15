@@ -1,5 +1,11 @@
 package model
 
+type User struct {
+	JwtToken	string	`json:"jwt_token,omitempty"`
+	Username	string	`json:"username"`
+	Password	string	`json:"password"`
+}
+
 type Theme struct {
 	ID		int		`json:"id" bson:"id"`
 	Description	string		`json:"description" bson:"description"`
