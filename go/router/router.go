@@ -12,4 +12,5 @@ func Routes(reader service.GameReader, pinger handler.Pinger) {
 
 	http.HandleFunc("GET /health", handler.GetHealth(pinger))
 
+	http.HandleFunc("POST /api/v1/login", handler.UserConnection())
 }
