@@ -43,8 +43,10 @@ func main() {
 
 	collection := client.Database(os.Getenv("MONGO_DATABASE"))
 	games := collection.Collection("games")
+
 	router.Routes(
-		&repository.GameRepository{Collection: games},
+		&repository.GameRepository{Collection: games}, // read
+		&repository.GameRepository{Collection: games}, //write
 		&repository.HealthRepository{Client: client},
 	)
 

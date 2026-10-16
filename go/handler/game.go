@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
-	"strconv"
-
+	"rest-api/middleware"
 	"rest-api/model"
 	"rest-api/service"
+	"strconv"
 )
 
 func parseInt64(raw string) (int64, error) {
@@ -59,5 +60,39 @@ func GetGames(reader service.GameReader) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(page)
+	}
+}
+
+const maxBodySize = 1 << 20 // 1 Mo
+func PostGame(writer service.GameWriter) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodySize) // protège contre les corps énormes
+
+		var in model.CreateGame
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields() // refuse {"_id": 5} ou les fautes de frappe
+		if err := decoder.Decode(&in); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+			return
+		}
+
+		game, err := service.CreateGame(r.Context(), writer, in)
+		switch {
+		case errors.Is(err, model.ErrInvalidGame):
+			writeError(w, http.StatusUnprocessableEntity, err.Error()) // 422
+			return
+		case errors.Is(err, model.ErrGameConflict):
+			writeError(w, http.StatusConflict, err.Error()) // 409
+			return
+		case err != nil:
+			log.Printf("PostGame (user %s): %v", middleware.User(r.Context()), err)
+			writeError(w, http.StatusInternalServerError, "internal error") // ne jamais exposer l'erreur Mongo
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Location", fmt.Sprintf("/api/v1/games/%d", game.ID))
+		w.WriteHeader(http.StatusCreated) // 201
+		json.NewEncoder(w).Encode(game)
 	}
 }

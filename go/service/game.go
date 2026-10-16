@@ -1,12 +1,16 @@
 package service
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"math/rand/v2"
 	"net/url"
-	"strconv"
-
 	"rest-api/model"
+	"strconv"
+	"strings"
+
+	"github.com/go-playground/validator/v10"
 )
 
 const (
@@ -18,6 +22,10 @@ const (
 type GameReader interface {
 	FindAll(limit, skip int64, params map[string]string, version model.FilterVersion) ([]model.Game, error)
 	Count(params map[string]string, version model.FilterVersion) (int64, error)
+}
+
+type GameWriter interface {
+	Create(ctx context.Context, game model.Game) (model.Game, error)
 }
 
 func ListGames(r GameReader, params map[string]string, limit, skip int64) (model.Page, error) {
@@ -78,4 +86,40 @@ func link(params map[string]string, limit, skip int64) string {
 	values.Set("limit", strconv.FormatInt(limit, 10))
 	values.Set("skip", strconv.FormatInt(skip, 10))
 	return gamesPath + "?" + values.Encode()
+}
+
+var validate = validator.New(validator.WithRequiredStructEnabled())
+
+func CreateGame(ctx context.Context, w GameWriter, in model.CreateGame) (model.Game, error) {
+	if err := validate.Struct(in); err != nil {
+		return model.Game{}, fmt.Errorf("%w: %s", model.ErrInvalidGame, err)
+	}
+
+	if in.IsFree && in.Price != nil && *in.Price > 0 {
+		return model.Game{}, fmt.Errorf("%w: a free game cannot have a price", model.ErrInvalidGame)
+	}
+	if !in.IsFree && in.Price == nil {
+		return model.Game{}, fmt.Errorf("%w: price is required for a paid game", model.ErrInvalidGame)
+	}
+
+	game := model.Game{
+		Title:       strings.TrimSpace(in.Title),
+		Description: in.Description,
+		IsFree:      in.IsFree,
+		Price:       in.Price,
+		RequiredAge: in.RequiredAge,
+		Image:       in.Image,
+		Website:     in.Website,
+		Developers:  in.Developers,
+		Publishers:  in.Publishers,
+		Platforms:   in.Platforms,
+		Genres:      in.Genres,
+		ReleaseDate: in.ReleaseDate,
+	}
+	if in.ReleaseDate != nil {
+		year, _ := strconv.Atoi((*in.ReleaseDate)[:4]) // format déjà validé : AAAA-MM-JJ
+		game.ReleaseYear = &year
+	}
+
+	return w.Create(ctx, game)
 }

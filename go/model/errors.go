@@ -2,5 +2,8 @@ package model
 
 import "errors"
 
-var ErrInvalidFilter = errors.New("Invalid filter param value")
-var ErrInvalidFilterIsFree = errors.New("Invalid filter param value")
+var (
+	ErrInvalidFilter = errors.New("invalid filter parameter")
+	ErrInvalidGame   = errors.New("invalid game")
+	ErrGameConflict  = errors.New("game already exists")
+)
