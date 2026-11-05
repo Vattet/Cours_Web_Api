@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -74,4 +75,16 @@ func exactIgnoreCase(items []string) []bson.Regex {
 		out[i] = bson.Regex{Pattern: "^" + regexp.QuoteMeta(item) + "$", Options: "i"}
 	}
 	return out
+}
+
+func buildQuery(params map[string]string) (filter, sort bson.D, err error) {
+	values := make(url.Values, len(params))
+	for key, value := range params {
+		values.Set(key, value)
+	}
+	q, err := query.ParseGames(values)
+	if err != nil {
+		return nil, nil, err
+	}
+	return gamesFilter(q), gamesSort(q), nil
 }

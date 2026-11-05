@@ -15,10 +15,10 @@ type GameRepository struct {
 	*mongo.Collection
 }
 
-func (r *GameRepository) FindAll(limit, skip int64, params map[string]string, version model.FilterVersion) ([]model.Game, error) {
+func (r *GameRepository) FindAll(limit, skip int64, params map[string]string) ([]model.Game, error) {
 	ctx := context.Background()
 
-	filter, sort, err := buildQuery(version, params)
+	filter, sort, err := buildQuery(params)
 	if err != nil {
 		return nil, err
 	}
@@ -45,8 +45,8 @@ func (r *GameRepository) FindAll(limit, skip int64, params map[string]string, ve
 	return games, nil
 }
 
-func (r *GameRepository) Count(params map[string]string, version model.FilterVersion) (int64, error) {
-	filter, _, err := buildQuery(version, params)
+func (r *GameRepository) Count(params map[string]string) (int64, error) {
+	filter, _, err := buildQuery(params)
 	if err != nil {
 		return 0, err
 	}
