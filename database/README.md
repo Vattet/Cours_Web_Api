@@ -1,53 +1,37 @@
-# Base de donnees MongoDB (dataset Steam)
+# Base de données MongoDB
 
-Stack Docker qui demarre un MongoDB et y importe automatiquement `steam.json/steam.json`
-(~60 Mo, un tableau JSON de jeux Steam) dans la collection `steam.games`.
+On utilise MongoDB dans Docker avec le dataset Steam (`steam.json/steam.json`, environ 60 Mo).
+Au premier lancement, le fichier est importé automatiquement dans la collection `steam.games`.
 
-## Contenu
-
-| Fichier | Role |
-| --- | --- |
-| `docker-compose.yml` | MongoDB 7, le conteneur d'import, et mongo-express |
-| `docker/seed.sh` | Attend Mongo, lance `mongoimport`, puis les index |
-| `docker/indexes.js` | Index crees apres l'import |
-| `.env.example` | Variables (identifiants, ports, base, collection) |
-
-## Demarrage
+## Lancer la base
 
 ```bash
 cd database
-cp .env.example .env     # deja fait si .env existe
+cp .env.example .env
 docker compose up -d
 ```
 
-Le service `mongo-seed` est un conteneur one-shot : il attend que MongoDB soit sain,
-importe le JSON, cree les index, puis s'arrete (statut `Exited (0)`). C'est normal.
+Il y a 3 conteneurs :
+- `mongodb` : la base
+- `mongo-seed` : importe le JSON et crée les index, puis il s'arrête tout seul
+- `mongo-express` : une interface web pour voir les données
 
-Suivre l'import :
+Pour voir où en est l'import :
 
 ```bash
 docker compose logs -f mongo-seed
 ```
 
-## Acces
+## Se connecter
 
-- **URI de connexion** (depuis la machine hote, pour l'API) :
-  `mongodb://root:rootpassword@localhost:27017/steam?authSource=admin`
-- **Depuis un autre conteneur du meme reseau** : remplacer `localhost` par `mongodb`
-- **mongo-express** : http://localhost:8081 (login `admin` / `admin`)
-- **Shell mongo** :
+- URI pour l'API : `mongodb://root:rootpassword@localhost:27017/steam?authSource=admin`
+- mongo-express : http://localhost:8081 (admin / admin)
+- en ligne de commande :
   ```bash
   docker compose exec mongodb mongosh -u root -p rootpassword --authenticationDatabase admin steam
   ```
 
-## Verifier les donnees
-
-```bash
-docker compose exec mongodb mongosh -u root -p rootpassword --authenticationDatabase admin steam \
-  --quiet --eval 'print(db.games.countDocuments()); printjson(db.games.findOne())'
-```
-
-## Structure d'un document
+## Exemple de document
 
 ```json
 {
@@ -56,31 +40,27 @@ docker compose exec mongodb mongosh -u root -p rootpassword --authenticationData
   "required_age": 0,
   "is_free": true,
   "description": "...",
-  "image": "https://...",
-  "website": "http://www.dota2.com/",
   "developers": ["Valve"],
   "publishers": ["Valve"],
   "platforms": ["windows", "mac", "linux"],
   "metacritic_score": 90,
-  "categories": [{ "id": 1, "description": "Multi-player" }],
   "genres": [{ "id": 1, "description": "Action" }],
-  "recommendations": 14301,
   "release_date": "2013-07-09",
   "release_year": 2013
 }
 ```
 
-`_id` est l'appid Steam, donc l'import est idempotent sur la cle.
+Le `_id` est l'id du jeu sur Steam.
 
-## Reimporter le dataset
+## Réimporter les données
 
-L'import est ignore si la collection contient deja des documents. Pour forcer :
+Si la collection n'est pas vide, l'import ne se refait pas. Pour le forcer :
 
 ```bash
 SEED_FORCE=1 docker compose up mongo-seed
 ```
 
-## Repartir de zero (supprime les donnees)
+Pour tout supprimer et recommencer :
 
 ```bash
 docker compose down -v

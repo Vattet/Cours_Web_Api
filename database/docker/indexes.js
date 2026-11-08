@@ -1,23 +1,17 @@
-// Index crees apres l'import. Adaptes aux requetes typiques de l'API Steam.
-const coll = db.getCollection(globalThis.TARGET_COLLECTION || "games");
+// Index sur les champs utilisés par les filtres de l'API
+const games = db.getCollection(COLL);
 
-const indexes = [
-  [{ title: 1 }, { name: "idx_title" }],
-  [{ release_year: -1 }, { name: "idx_release_year" }],
-  [{ metacritic_score: -1 }, { name: "idx_metacritic_score" }],
-  [{ is_free: 1 }, { name: "idx_is_free" }],
-  [{ "genres.description": 1 }, { name: "idx_genres" }],
-  [{ "categories.description": 1 }, { name: "idx_categories" }],
-  [{ developers: 1 }, { name: "idx_developers" }],
-  [{ publishers: 1 }, { name: "idx_publishers" }],
-  [{ platforms: 1 }, { name: "idx_platforms" }],
-  // Recherche plein texte sur titre + description
-  [{ title: "text", description: "text" }, { name: "idx_text_search", weights: { title: 10, description: 1 } }],
-];
+games.createIndex({ title: 1 });
+games.createIndex({ release_year: -1 });
+games.createIndex({ metacritic_score: -1 });
+games.createIndex({ is_free: 1 });
+games.createIndex({ "genres.description": 1 });
+games.createIndex({ "categories.description": 1 });
+games.createIndex({ developers: 1 });
+games.createIndex({ publishers: 1 });
+games.createIndex({ platforms: 1 });
 
-for (const [keys, opts] of indexes) {
-  coll.createIndex(keys, opts);
-  print("  index cree : " + opts.name);
-}
+// pour la recherche texte sur le titre et la description
+games.createIndex({ title: "text", description: "text" });
 
-print("index total : " + coll.getIndexes().length);
+print("Index créés : " + games.getIndexes().length);

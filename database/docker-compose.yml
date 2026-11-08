@@ -19,7 +19,6 @@ services:
       retries: 10
       start_period: 20s
 
-  # Conteneur one-shot : importe steam.json puis cree les index, et s'arrete.
   mongo-seed:
     image: mongo:7
     container_name: steam-mongo-seed
@@ -33,7 +32,6 @@ services:
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
       MONGO_DATABASE: ${MONGO_DATABASE:-steam}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-games}
-      # SEED_FORCE=1 : vide la collection et reimporte meme si elle contient deja des documents
       SEED_FORCE: ${SEED_FORCE:-0}
     volumes:
       - ./steam.json/steam.json:/seed/steam.json:ro

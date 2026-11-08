@@ -112,7 +112,7 @@ func CreateGame(ctx context.Context, w GameWriter, in model.CreateGame) (model.G
 		ReleaseDate: in.ReleaseDate,
 	}
 	if in.ReleaseDate != nil {
-		year, _ := strconv.Atoi((*in.ReleaseDate)[:4]) // format déjà validé : AAAA-MM-JJ
+		year, _ := strconv.Atoi((*in.ReleaseDate)[:4])
 		game.ReleaseYear = &year
 	}
 

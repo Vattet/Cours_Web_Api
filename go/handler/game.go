@@ -63,14 +63,15 @@ func GetGames(reader service.GameReader) http.HandlerFunc {
 	}
 }
 
-const maxBodySize = 1 << 20 // 1 Mo
+const maxBodySize = 1 << 20
+
 func PostGame(writer service.GameWriter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, maxBodySize) // protège contre les corps énormes
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 
 		var in model.CreateGame
 		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields() // refuse {"_id": 5} ou les fautes de frappe
+		decoder.DisallowUnknownFields()
 		if err := decoder.Decode(&in); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
 			return
@@ -79,20 +80,20 @@ func PostGame(writer service.GameWriter) http.HandlerFunc {
 		game, err := service.CreateGame(r.Context(), writer, in)
 		switch {
 		case errors.Is(err, model.ErrInvalidGame):
-			writeError(w, http.StatusUnprocessableEntity, err.Error()) // 422
+			writeError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		case errors.Is(err, model.ErrGameConflict):
-			writeError(w, http.StatusConflict, err.Error()) // 409
+			writeError(w, http.StatusConflict, err.Error())
 			return
 		case err != nil:
 			log.Printf("PostGame (user %s): %v", middleware.User(r.Context()), err)
-			writeError(w, http.StatusInternalServerError, "internal error") // ne jamais exposer l'erreur Mongo
+			writeError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Location", fmt.Sprintf("/api/v1/games/%d", game.ID))
-		w.WriteHeader(http.StatusCreated) // 201
+		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(game)
 	}
 }

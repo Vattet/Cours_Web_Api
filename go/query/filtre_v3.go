@@ -1,29 +1,25 @@
 package query
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
-	"reflect"
-	"sort"
+	"strconv"
 	"strings"
-
-	"github.com/go-playground/validator/v10"
-	"github.com/gorilla/schema"
 
 	"rest-api/model"
 )
 
+// Les filtres possibles pour GET /api/v1/games
 type Games struct {
-	Title       string   `schema:"title"        validate:"max=100"`
-	ReleaseYear *int     `schema:"release_year" validate:"omitempty,gte=1950,lte=2100"`
-	IsFree      *bool    `schema:"is_free"`
-	Platforms   []string `schema:"platforms"    validate:"max=10,dive,max=50"`
-	Developers  []string `schema:"developers"   validate:"max=10,dive,max=100"`
-	Publishers  []string `schema:"publishers"   validate:"max=10,dive,max=100"`
-	Genres      []string `schema:"genre"        validate:"max=10,dive,max=50"`
-	GenreIDs    []int    `schema:"genre_id"     validate:"max=10,dive,gt=0"`
-	Order       []string `schema:"order"        validate:"max=3,dive,oneof=title -title release_year -release_year price -price"`
+	Title       string
+	ReleaseYear *int  // nil = pas de filtre
+	IsFree      *bool // nil = pas de filtre
+	Platforms   []string
+	Developers  []string
+	Publishers  []string
+	Genres      []string
+	GenreIDs    []int
+	Order       []string // ex: "title" ou "-release_year" (le - veut dire décroissant)
 }
 
 type SortField struct {
@@ -31,164 +27,134 @@ type SortField struct {
 	Desc bool
 }
 
+var allowedOrder = []string{"title", "release_year", "price"}
+
 func (g Games) Sort() []SortField {
-	fields := make([]SortField, len(g.Order))
-	for i, raw := range g.Order {
-		name, desc := strings.CutPrefix(raw, "-")
-		fields[i] = SortField{Name: name, Desc: desc}
+	var fields []SortField
+	for _, o := range g.Order {
+		if strings.HasPrefix(o, "-") {
+			fields = append(fields, SortField{Name: o[1:], Desc: true})
+		} else {
+			fields = append(fields, SortField{Name: o, Desc: false})
+		}
 	}
 	return fields
 }
 
+// ParseGames lit les paramètres de l'URL et vérifie qu'ils sont valides.
 func ParseGames(values url.Values) (Games, error) {
 	var g Games
-	if err := decoder.Decode(&g, normalize(values)); err != nil {
-		return Games{}, fromDecodeError(err)
+	var err error
+
+	g.Title = strings.TrimSpace(values.Get("title"))
+	if len(g.Title) > 100 {
+		return g, invalid("title", "100 caractères maximum")
 	}
-	if err := validate.Struct(g); err != nil {
-		return Games{}, fromValidationError(err)
+
+	if v := values.Get("release_year"); v != "" {
+		year, err := strconv.Atoi(v)
+		if err != nil || year < 1950 || year > 2100 {
+			return g, invalid("release_year", "doit être une année entre 1950 et 2100")
+		}
+		g.ReleaseYear = &year
 	}
-	if err := checkDuplicateOrder(g.Order); err != nil {
-		return Games{}, err
+
+	if v := values.Get("is_free"); v != "" {
+		free, err := strconv.ParseBool(v)
+		if err != nil {
+			return g, invalid("is_free", "doit être true ou false")
+		}
+		g.IsFree = &free
 	}
+
+	if g.Platforms, err = parseList(values, "platforms", 50); err != nil {
+		return g, err
+	}
+	if g.Developers, err = parseList(values, "developers", 100); err != nil {
+		return g, err
+	}
+	if g.Publishers, err = parseList(values, "publishers", 100); err != nil {
+		return g, err
+	}
+	if g.Genres, err = parseList(values, "genre", 50); err != nil {
+		return g, err
+	}
+
+	ids, err := parseList(values, "genre_id", 20)
+	if err != nil {
+		return g, err
+	}
+	for _, s := range ids {
+		id, err := strconv.Atoi(s)
+		if err != nil || id <= 0 {
+			return g, invalid("genre_id", "doit être un entier positif")
+		}
+		g.GenreIDs = append(g.GenreIDs, id)
+	}
+
+	if g.Order, err = parseOrder(values); err != nil {
+		return g, err
+	}
+
 	return g, nil
 }
 
-type FieldError struct {
-	Param   string `json:"param"`
-	Message string `json:"message"`
-}
-
-type Error struct {
-	Fields []FieldError `json:"errors"`
-}
-
-func (e *Error) Error() string {
-	parts := make([]string, len(e.Fields))
-	for i, f := range e.Fields {
-		parts[i] = f.Param + ": " + f.Message
-	}
-	return model.ErrInvalidFilter.Error() + ": " + strings.Join(parts, "; ")
-}
-
-func (e *Error) Unwrap() error { return model.ErrInvalidFilter }
-
-func fromDecodeError(err error) error {
-	var multi schema.MultiError
-	if !errors.As(err, &multi) {
-		return &Error{Fields: []FieldError{{Param: "query", Message: err.Error()}}}
-	}
-
-	params := make([]string, 0, len(multi))
-	for param := range multi {
-		params = append(params, param)
-	}
-	sort.Strings(params)
-
-	fields := make([]FieldError, len(params))
-	for i, param := range params {
-		fields[i] = FieldError{Param: baseParam(param), Message: "invalid value type"}
-	}
-	return &Error{Fields: fields}
-}
-
-func fromValidationError(err error) error {
-	var verrs validator.ValidationErrors
-	if !errors.As(err, &verrs) {
-		return &Error{Fields: []FieldError{{Param: "query", Message: err.Error()}}}
-	}
-
-	fields := make([]FieldError, len(verrs))
-	for i, e := range verrs {
-		fields[i] = FieldError{Param: baseParam(e.Field()), Message: message(e)}
-	}
-	return &Error{Fields: fields}
-}
-
-func message(e validator.FieldError) string {
-	switch e.Tag() {
-	case "max":
-		if e.Kind() == reflect.Slice {
-			return "at most " + e.Param() + " values allowed"
-		}
-		return "must be at most " + e.Param() + " characters"
-	case "gt":
-		return "must be greater than " + e.Param()
-	case "gte":
-		return "must be greater than or equal to " + e.Param()
-	case "lte":
-		return "must be less than or equal to " + e.Param()
-	case "oneof":
-		return "must be one of: " + strings.ReplaceAll(e.Param(), " ", ", ")
-	default:
-		return "failed rule " + e.Tag()
-	}
-}
-
-func checkDuplicateOrder(order []string) error {
-	seen := make(map[string]bool, len(order))
-	for _, raw := range order {
-		name := strings.TrimPrefix(raw, "-")
-		if seen[name] {
-			return &Error{Fields: []FieldError{{Param: "order", Message: fmt.Sprintf("%q is used more than once", name)}}}
-		}
-		seen[name] = true
-	}
-	return nil
-}
-
-func baseParam(name string) string {
-	if i := strings.IndexByte(name, '['); i >= 0 {
-		return name[:i]
-	}
-	return name
-}
-
-var (
-	decoder    = newDecoder()
-	validate   = newValidator()
-	listParams = paramsOfKind[Games](reflect.Slice)
-)
-
-func newDecoder() *schema.Decoder {
-	d := schema.NewDecoder()
-	d.IgnoreUnknownKeys(true)
-	return d
-}
-
-func newValidator() *validator.Validate {
-	v := validator.New(validator.WithRequiredStructEnabled())
-	v.RegisterTagNameFunc(func(f reflect.StructField) string {
-		return f.Tag.Get("schema")
-	})
-	return v
-}
-
-func normalize(values url.Values) url.Values {
-	out := make(url.Values, len(values))
-	for key, raw := range values {
-		for _, value := range raw {
-			parts := []string{value}
-			if listParams[key] {
-				parts = strings.Split(value, ",")
+// parseList transforme "a,b,c" en ["a", "b", "c"] (10 valeurs max).
+func parseList(values url.Values, key string, maxLen int) ([]string, error) {
+	var list []string
+	for _, raw := range values[key] {
+		for _, part := range strings.Split(raw, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
 			}
-			for _, part := range parts {
-				if part = strings.TrimSpace(part); part != "" {
-					out[key] = append(out[key], part)
-				}
+			if len(part) > maxLen {
+				return nil, invalid(key, fmt.Sprintf("chaque valeur fait %d caractères maximum", maxLen))
 			}
+			list = append(list, part)
 		}
 	}
-	return out
+	if len(list) > 10 {
+		return nil, invalid(key, "10 valeurs maximum")
+	}
+	return list, nil
 }
 
-func paramsOfKind[T any](kind reflect.Kind) map[string]bool {
-	params := map[string]bool{}
-	t := reflect.TypeFor[T]()
-	for i := range t.NumField() {
-		if f := t.Field(i); f.Type.Kind() == kind {
-			params[f.Tag.Get("schema")] = true
+// parseOrder vérifie le tri : 3 champs max, connus, et pas deux fois le même.
+func parseOrder(values url.Values) ([]string, error) {
+	order, err := parseList(values, "order", 20)
+	if err != nil {
+		return nil, err
+	}
+	if len(order) > 3 {
+		return nil, invalid("order", "3 champs maximum")
+	}
+
+	used := map[string]bool{}
+	for _, o := range order {
+		name := strings.TrimPrefix(o, "-")
+		if !contains(allowedOrder, name) {
+			return nil, invalid("order", "valeurs possibles : title, release_year, price (avec - devant pour décroissant)")
+		}
+		if used[name] {
+			return nil, invalid("order", name+" est utilisé deux fois")
+		}
+		used[name] = true
+	}
+	return order, nil
+}
+
+func contains(list []string, value string) bool {
+	for _, v := range list {
+		if v == value {
+			return true
 		}
 	}
-	return params
+	return false
+}
+
+// invalid renvoie une erreur qui contient ErrInvalidFilter,
+// comme ça le handler peut la reconnaître avec errors.Is.
+func invalid(param, message string) error {
+	return fmt.Errorf("%w: %s: %s", model.ErrInvalidFilter, param, message)
 }
