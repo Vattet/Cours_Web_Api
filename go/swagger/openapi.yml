@@ -2,27 +2,137 @@ openapi: 3.0.3
 info:
   title: Steam Games API
   version: 1.0.0
+  description: API REST sur le dataset des jeux Steam (Go + MongoDB).
+
+tags:
+  - name: games
+  - name: auth
+  - name: health
+
 paths:
   /api/v1/games:
     get:
+      tags: [games]
       summary: Liste des jeux
+      description: Liste paginée, avec filtres et tri. Les listes s'écrivent avec des virgules (ex. `windows,linux`).
       parameters:
-        - { name: title, in: query, schema: { type: string } }
-        - { name: release_year, in: query, schema: { type: integer } }
-        - { name: limit, in: query, schema: { type: integer, default: 10 } }
-        - { name: skip, in: query, schema: { type: integer, default: 0 } }
+        - name: title
+          in: query
+          description: Recherche dans le titre (sans tenir compte des majuscules)
+          schema: { type: string, maxLength: 100 }
+          example: dota
+        - name: release_year
+          in: query
+          schema: { type: integer, minimum: 1950, maximum: 2100 }
+        - name: is_free
+          in: query
+          schema: { type: boolean }
+        - name: platforms
+          in: query
+          description: Le jeu doit être sur toutes ces plateformes
+          schema: { type: string }
+          example: windows,linux
+        - name: developers
+          in: query
+          description: Le jeu doit avoir tous ces développeurs
+          schema: { type: string }
+          example: Valve
+        - name: publishers
+          in: query
+          description: Le jeu doit avoir tous ces éditeurs
+          schema: { type: string }
+          example: Valve
+        - name: genre
+          in: query
+          description: Au moins un de ces genres
+          schema: { type: string }
+          example: Action,RPG
+        - name: genre_id
+          in: query
+          description: Au moins un de ces id de genre
+          schema: { type: string }
+          example: 1,23
+        - name: order
+          in: query
+          description: |
+            Tri, 3 champs maximum : `title`, `release_year`, `price`.
+            Un `-` devant pour l'ordre décroissant.
+          schema: { type: string }
+          example: -release_year,title
+        - name: limit
+          in: query
+          description: Nombre de jeux par page (100 maximum)
+          schema: { type: integer, minimum: 0, maximum: 100, default: 10 }
+        - name: skip
+          in: query
+          description: Nombre de jeux à sauter
+          schema: { type: integer, minimum: 0, default: 0 }
       responses:
-        "200": { description: OK }
-        "400": { description: Filtre invalide }
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Page" }
+        "400":
+          description: Filtre, limit ou skip invalide
+          content:
+            text/plain:
+              schema: { type: string, example: invalid filter key }
+        "500":
+          description: Erreur serveur
+
     post:
+      tags: [games]
       summary: Ajouter un jeu
-      security: [ { bearerAuth: [] } ]
+      description: |
+        Nécessite un token (bouton Authorize).
+        Un jeu gratuit ne peut pas avoir de prix, un jeu payant doit en avoir un.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateGame" }
       responses:
-        "201": { description: Jeu créé }
-        "401": { description: Token manquant ou invalide }
+        "201":
+          description: Jeu créé
+          headers:
+            Location:
+              description: URL du nouveau jeu
+              schema: { type: string, example: /api/v1/games/2000001 }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Game" }
+        "400":
+          description: JSON invalide ou champ inconnu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401":
+          description: Token manquant ou invalide
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Le jeu existe déjà
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Données invalides
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /api/v1/login:
     post:
-      summary: Connexion (renvoie un token JWT)
+      tags: [auth]
+      summary: Connexion (renvoie un token JWT valable 24h)
       requestBody:
         required: true
         content:
@@ -42,8 +152,126 @@ paths:
                 type: object
                 properties:
                   token: { type: string }
-        "400": { description: JSON invalide }
-        "401": { description: Mauvais identifiants }
+        "400":
+          description: JSON invalide
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401":
+          description: Mauvais identifiants
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /health:
+    get:
+      tags: [health]
+      summary: État de l'API et de la base
+      responses:
+        "200":
+          description: Tout fonctionne
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+              example: { status: ok, database: up }
+        "503":
+          description: La base ne répond pas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+              example: { status: degraded, database: down }
+
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+
+  schemas:
+    Theme:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        description: { type: string, example: Action }
+
+    Game:
+      type: object
+      properties:
+        _id: { type: integer, example: 570 }
+        title: { type: string, example: Dota 2 }
+        required_age:
+          oneOf: [{ type: integer }, { type: string }]
+          example: 0
+        is_free: { type: boolean, example: true }
+        description: { type: string }
+        image: { type: string }
+        website: { type: string, nullable: true }
+        developers: { type: array, items: { type: string }, example: [Valve] }
+        publishers: { type: array, items: { type: string }, example: [Valve] }
+        platforms: { type: array, items: { type: string }, example: [windows, mac, linux] }
+        genres: { type: array, items: { $ref: "#/components/schemas/Theme" } }
+        categories: { type: array, items: { $ref: "#/components/schemas/Theme" } }
+        price: { type: number, nullable: true }
+        recommendations: { type: integer, nullable: true }
+        metacritic_score: { type: integer, nullable: true }
+        release_date: { type: string, nullable: true, example: "2013-07-09" }
+        release_year: { type: integer, nullable: true, example: 2013 }
+
+    CreateGame:
+      type: object
+      required: [title, platforms]
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 200, example: Mon Jeu }
+        description: { type: string, maxLength: 5000, example: Un super jeu }
+        is_free: { type: boolean, example: false }
+        price: { type: number, minimum: 0, nullable: true, example: 19.99 }
+        required_age: { type: integer, minimum: 0, maximum: 21, example: 12 }
+        image: { type: string, format: uri }
+        website: { type: string, format: uri, nullable: true }
+        developers:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 100 }
+          example: [Mon Studio]
+        publishers:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 100 }
+          example: [Mon Studio]
+        platforms:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [windows, mac, linux] }
+          example: [windows, linux]
+        genres:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/Theme" }
+        release_date: { type: string, format: date, nullable: true, example: "2026-11-09" }
+
+    Links:
+      type: object
+      properties:
+        self: { type: string, example: /api/v1/games?limit=10&skip=10 }
+        next: { type: string, example: /api/v1/games?limit=10&skip=20 }
+        prev: { type: string, example: /api/v1/games?limit=10&skip=0 }
+
+    Page:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Game" } }
+        page: { type: integer, example: 2 }
+        pageSize: { type: integer, example: 10 }
+        totalItems: { type: integer, example: 71716 }
+        totalPages: { type: integer, example: 7172 }
+        _links: { $ref: "#/components/schemas/Links" }
+
+    Health:
+      type: object
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        database: { type: string, enum: [up, down] }
+
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: invalid game }

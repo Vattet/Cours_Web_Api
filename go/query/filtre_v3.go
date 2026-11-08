@@ -9,17 +9,16 @@ import (
 	"rest-api/model"
 )
 
-// Les filtres possibles pour GET /api/v1/games
 type Games struct {
 	Title       string
-	ReleaseYear *int  // nil = pas de filtre
-	IsFree      *bool // nil = pas de filtre
+	ReleaseYear *int
+	IsFree      *bool
 	Platforms   []string
 	Developers  []string
 	Publishers  []string
 	Genres      []string
 	GenreIDs    []int
-	Order       []string // ex: "title" ou "-release_year" (le - veut dire décroissant)
+	Order       []string
 }
 
 type SortField struct {
@@ -41,7 +40,6 @@ func (g Games) Sort() []SortField {
 	return fields
 }
 
-// ParseGames lit les paramètres de l'URL et vérifie qu'ils sont valides.
 func ParseGames(values url.Values) (Games, error) {
 	var g Games
 	var err error
@@ -99,7 +97,6 @@ func ParseGames(values url.Values) (Games, error) {
 	return g, nil
 }
 
-// parseList transforme "a,b,c" en ["a", "b", "c"] (10 valeurs max).
 func parseList(values url.Values, key string, maxLen int) ([]string, error) {
 	var list []string
 	for _, raw := range values[key] {
@@ -120,7 +117,6 @@ func parseList(values url.Values, key string, maxLen int) ([]string, error) {
 	return list, nil
 }
 
-// parseOrder vérifie le tri : 3 champs max, connus, et pas deux fois le même.
 func parseOrder(values url.Values) ([]string, error) {
 	order, err := parseList(values, "order", 20)
 	if err != nil {
@@ -153,8 +149,6 @@ func contains(list []string, value string) bool {
 	return false
 }
 
-// invalid renvoie une erreur qui contient ErrInvalidFilter,
-// comme ça le handler peut la reconnaître avec errors.Is.
 func invalid(param, message string) error {
 	return fmt.Errorf("%w: %s: %s", model.ErrInvalidFilter, param, message)
 }
