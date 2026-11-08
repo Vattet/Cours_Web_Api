@@ -5,6 +5,7 @@ import (
 
 	"rest-api/handler"
 	"rest-api/middleware"
+	"rest-api/swagger"
 
 	"rest-api/service"
 )
@@ -16,4 +17,6 @@ func Routes(reader service.GameReader, writer service.GameWriter, pinger handler
 	http.HandleFunc("GET /health", handler.GetHealth(pinger))
 
 	http.HandleFunc("POST /api/v1/login", handler.UserConnection())
+
+	swagger.Routes()
 }

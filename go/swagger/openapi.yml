@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: Steam Games API
+  version: 1.0.0
+paths:
+  /api/v1/games:
+    get:
+      summary: Liste des jeux
+      parameters:
+        - { name: title, in: query, schema: { type: string } }
+        - { name: release_year, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer, default: 10 } }
+        - { name: skip, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200": { description: OK }
+        "400": { description: Filtre invalide }
+    post:
+      summary: Ajouter un jeu
+      security: [ { bearerAuth: [] } ]
+      responses:
+        "201": { description: Jeu créé }
+        "401": { description: Token manquant ou invalide }
+  /api/v1/login:
+    post:
+      summary: Connexion (renvoie un token JWT)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, example: admin }
+                password: { type: string, example: motdepasse }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+        "400": { description: JSON invalide }
+        "401": { description: Mauvais identifiants }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
