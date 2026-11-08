@@ -63,6 +63,30 @@ func GetGames(reader service.GameReader) http.HandlerFunc {
 	}
 }
 
+func GetGameByID(gameReader service.GameReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid id")
+			return
+		}
+
+		game, err := service.GetGame(r.Context(), gameReader, id)
+		if errors.Is(err, model.ErrGameNotFound) {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if err != nil {
+			log.Printf("GetGameByID %d: %v", id, err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(game)
+	}
+}
+
 const maxBodySize = 1 << 20 // 1 Mo
 func PostGame(writer service.GameWriter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

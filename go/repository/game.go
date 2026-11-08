@@ -83,3 +83,17 @@ func (r *GameRepository) nextID(ctx context.Context) (int, error) {
 	}
 	return last.ID + 1, nil
 }
+
+func (r *GameRepository) FindByID(ctx context.Context, id int) (model.Game, error) {
+	var game model.Game
+
+	err := r.FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&game)
+
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return model.Game{}, model.ErrGameNotFound
+	}
+	if err != nil {
+		return model.Game{}, err
+	}
+	return game, nil
+}

@@ -11,6 +11,7 @@ import (
 
 func Routes(reader service.GameReader, writer service.GameWriter, pinger handler.Pinger) {
 	http.HandleFunc("GET /api/v1/games", handler.GetGames(reader))
+	http.HandleFunc("GET /api/v1/games/{id}", handler.GetGameByID(reader))
 	http.Handle("POST /api/v1/games", middleware.RequireAuth(handler.PostGame(writer)))
 
 	http.HandleFunc("GET /health", handler.GetHealth(pinger))

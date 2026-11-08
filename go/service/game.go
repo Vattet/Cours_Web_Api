@@ -20,6 +20,11 @@ const (
 type GameReader interface {
 	FindAll(limit, skip int64, params map[string]string) ([]model.Game, error)
 	Count(params map[string]string) (int64, error)
+	FindByID(ctx context.Context, id int) (model.Game, error)
+}
+
+func GetGame(ctx context.Context, r GameReader, id int) (model.Game, error) {
+	return r.FindByID(ctx, id)
 }
 
 type GameWriter interface {
