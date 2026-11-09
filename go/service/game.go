@@ -29,6 +29,7 @@ func GetGame(ctx context.Context, r GameReader, id int) (model.Game, error) {
 
 type GameWriter interface {
 	Create(ctx context.Context, game model.Game) (model.Game, error)
+	Update(ctx context.Context, id int, game model.Game) (model.Game, error)
 }
 
 func ListGames(r GameReader, params map[string]string, limit, skip int64) (model.Page, error) {
@@ -91,6 +92,22 @@ func link(params map[string]string, limit, skip int64) string {
 var validate = validator.New(validator.WithRequiredStructEnabled())
 
 func CreateGame(ctx context.Context, w GameWriter, in model.CreateGame) (model.Game, error) {
+	game, err := buildGame(in)
+	if err != nil {
+		return model.Game{}, err
+	}
+	return w.Create(ctx, game)
+}
+
+func UpdateGame(ctx context.Context, w GameWriter, id int, in model.CreateGame) (model.Game, error) {
+	game, err := buildGame(in)
+	if err != nil {
+		return model.Game{}, err
+	}
+	return w.Update(ctx, id, game)
+}
+
+func buildGame(in model.CreateGame) (model.Game, error) {
 	if err := validate.Struct(in); err != nil {
 		return model.Game{}, fmt.Errorf("%w: %s", model.ErrInvalidGame, err)
 	}
@@ -114,6 +131,9 @@ func CreateGame(ctx context.Context, w GameWriter, in model.CreateGame) (model.G
 		Publishers:  in.Publishers,
 		Platforms:   in.Platforms,
 		Genres:      in.Genres,
+		Categories:      in.Categories,
+		Recommendations: in.Recommendations,
+		MetacriticScore: in.MetacriticScore,
 		ReleaseDate: in.ReleaseDate,
 	}
 	if in.ReleaseDate != nil {
@@ -121,5 +141,6 @@ func CreateGame(ctx context.Context, w GameWriter, in model.CreateGame) (model.G
 		game.ReleaseYear = &year
 	}
 
-	return w.Create(ctx, game)
+	return game, nil
 }
+

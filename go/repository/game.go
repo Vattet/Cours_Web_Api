@@ -97,3 +97,17 @@ func (r *GameRepository) FindByID(ctx context.Context, id int) (model.Game, erro
 	}
 	return game, nil
 }
+
+func (r *GameRepository) Update(ctx context.Context, id int, game model.Game) (model.Game, error) {
+	game.ID = id
+
+	result, err := r.ReplaceOne(ctx, bson.D{{Key: "_id", Value: id}}, game)
+	if err != nil {
+		return model.Game{}, err
+	}
+	if result.MatchedCount == 0 {
+		return model.Game{}, model.ErrGameNotFound
+	}
+
+	return game, nil
+}

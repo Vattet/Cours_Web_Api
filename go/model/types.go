@@ -42,5 +42,8 @@ type CreateGame struct {
 	Publishers  []string `json:"publishers"   validate:"max=20,dive,required,max=100"`
 	Platforms   []string `json:"platforms"    validate:"required,min=1,dive,oneof=windows mac linux"`
 	Genres      []Theme  `json:"genres"       validate:"max=20"`
+	Categories      []Theme  `json:"categories"       validate:"max=50"`
+	Recommendations *int     `json:"recommendations"  validate:"omitempty,gte=0"`
+	MetacriticScore *int     `json:"metacritic_score" validate:"omitempty,gte=0,lte=100"`
 	ReleaseDate *string  `json:"release_date" validate:"omitempty,datetime=2006-01-02"`
 }
