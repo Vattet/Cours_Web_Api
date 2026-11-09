@@ -16,5 +16,9 @@ services:
     environment:
       MONGO_HOST: mongodb
       MONGO_PORT: 27017
+      LOG_FILE: /logs/api.log
+      TZ: Europe/Paris
+    volumes:
+      - ./logs:/logs
     ports:
       - "${PORT:-8080}:8080"

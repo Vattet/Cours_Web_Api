@@ -29,7 +29,6 @@ func GetGames(reader service.GameReader) http.HandlerFunc {
 
 		params := map[string]string{}
 		for key, values := range query {
-			fmt.Println(values)
 			for _, value := range values {
 				params[key] = value
 			}

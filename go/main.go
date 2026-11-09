@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
+	"rest-api/middleware"
 	"rest-api/repository"
 	"rest-api/router"
 )
@@ -25,6 +27,13 @@ func main() {
 	if err := loadEnv(getenv("ENV_FILE", "../database/.env")); err != nil {
 		log.Fatal(err)
 	}
+
+	file, err := os.OpenFile(getenv("LOG_FILE", "api.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	log.SetOutput(io.MultiWriter(os.Stdout, file))
 
 	uri := "mongodb://" + os.Getenv("MONGO_ROOT_USERNAME") + ":" + os.Getenv("MONGO_ROOT_PASSWORD") +
 		"@" + getenv("MONGO_HOST", "localhost") + ":" + getenv("MONGO_PORT", "27017") + "/?authSource=admin"
@@ -50,5 +59,5 @@ func main() {
 		&repository.HealthRepository{Client: client},
 	)
 
-	log.Fatal(http.ListenAndServe(":"+getenv("PORT", "8080"), nil))
+	log.Fatal(http.ListenAndServe(":"+getenv("PORT", "8080"), middleware.Logging(http.DefaultServeMux)))
 }
