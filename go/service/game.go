@@ -30,6 +30,11 @@ func GetGame(ctx context.Context, r GameReader, id int) (model.Game, error) {
 type GameWriter interface {
 	Create(ctx context.Context, game model.Game) (model.Game, error)
 	Update(ctx context.Context, id int, game model.Game) (model.Game, error)
+	Delete(ctx context.Context, id int) error
+}
+
+func DeleteGame(ctx context.Context, w GameWriter, id int) error {
+	return w.Delete(ctx, id)
 }
 
 func ListGames(r GameReader, params map[string]string, limit, skip int64) (model.Page, error) {

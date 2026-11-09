@@ -157,3 +157,26 @@ func PutGame(writer service.GameWriter) http.HandlerFunc {
 		json.NewEncoder(w).Encode(game)
 	}
 }
+
+func DeleteGame(writer service.GameWriter) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid id")
+			return
+		}
+
+		err = service.DeleteGame(r.Context(), writer, id)
+		if errors.Is(err, model.ErrGameNotFound) {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if err != nil {
+			log.Printf("DeleteGame %d (user %s): %v", id, middleware.User(r.Context()), err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}
+}

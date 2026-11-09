@@ -111,3 +111,15 @@ func (r *GameRepository) Update(ctx context.Context, id int, game model.Game) (m
 
 	return game, nil
 }
+
+func (r *GameRepository) Delete(ctx context.Context, id int) error {
+	result, err := r.DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return model.ErrGameNotFound
+	}
+
+	return nil
+}
