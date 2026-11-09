@@ -83,3 +83,43 @@ func (r *GameRepository) nextID(ctx context.Context) (int, error) {
 	}
 	return last.ID + 1, nil
 }
+
+func (r *GameRepository) FindByID(ctx context.Context, id int) (model.Game, error) {
+	var game model.Game
+
+	err := r.FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&game)
+
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return model.Game{}, model.ErrGameNotFound
+	}
+	if err != nil {
+		return model.Game{}, err
+	}
+	return game, nil
+}
+
+func (r *GameRepository) Update(ctx context.Context, id int, game model.Game) (model.Game, error) {
+	game.ID = id
+
+	result, err := r.ReplaceOne(ctx, bson.D{{Key: "_id", Value: id}}, game)
+	if err != nil {
+		return model.Game{}, err
+	}
+	if result.MatchedCount == 0 {
+		return model.Game{}, model.ErrGameNotFound
+	}
+
+	return game, nil
+}
+
+func (r *GameRepository) Delete(ctx context.Context, id int) error {
+	result, err := r.DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return model.ErrGameNotFound
+	}
+
+	return nil
+}

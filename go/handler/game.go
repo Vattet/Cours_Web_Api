@@ -63,6 +63,30 @@ func GetGames(reader service.GameReader) http.HandlerFunc {
 	}
 }
 
+func GetGameByID(gameReader service.GameReader) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid id")
+			return
+		}
+
+		game, err := service.GetGame(r.Context(), gameReader, id)
+		if errors.Is(err, model.ErrGameNotFound) {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if err != nil {
+			log.Printf("GetGameByID %d: %v", id, err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(game)
+	}
+}
+
 const maxBodySize = 1 << 20
 
 func PostGame(writer service.GameWriter) http.HandlerFunc {
@@ -95,5 +119,65 @@ func PostGame(writer service.GameWriter) http.HandlerFunc {
 		w.Header().Set("Location", fmt.Sprintf("/api/v1/games/%d", game.ID))
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(game)
+	}
+}
+
+func PutGame(writer service.GameWriter) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid id")
+			return
+		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+		var in model.CreateGame
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&in); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+			return
+		}
+
+		game, err := service.UpdateGame(r.Context(), writer, id, in)
+		if errors.Is(err, model.ErrInvalidGame) {
+			writeError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		if errors.Is(err, model.ErrGameNotFound) {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if err != nil {
+			log.Printf("PutGame %d (user %s): %v", id, middleware.User(r.Context()), err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(game)
+	}
+}
+
+func DeleteGame(writer service.GameWriter) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid id")
+			return
+		}
+
+		err = service.DeleteGame(r.Context(), writer, id)
+		if errors.Is(err, model.ErrGameNotFound) {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if err != nil {
+			log.Printf("DeleteGame %d (user %s): %v", id, middleware.User(r.Context()), err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
