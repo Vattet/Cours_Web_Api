@@ -1,0 +1,26 @@
+name: grpc-td
+
+services:
+  python-server:
+    build: ./python
+
+  go-server:
+    build: ./go
+
+  go-client:
+    build: ./go
+    command: ["client"]
+    network_mode: "service:python-server"
+    depends_on: [python-server]
+    stdin_open: true
+    tty: true
+    profiles: [client]
+
+  python-client:
+    build: ./python
+    command: ["python", "client.py"]
+    network_mode: "service:go-server"
+    depends_on: [go-server]
+    stdin_open: true
+    tty: true
+    profiles: [client]
