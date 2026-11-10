@@ -1,0 +1,58 @@
+// =====================================================================
+// helloworld.proto  —  LE CONTRAT PARTAGÉ
+// =====================================================================
+// Ce fichier est le "contrat" entre le client et le serveur.
+// Il décrit :
+//   - QUELLE fonction on peut appeler à distance (le service + la méthode rpc)
+//   - QUELLES données on envoie (HelloRequest)
+//   - QUELLES données on reçoit (HelloReply)
+//
+// Ce fichier n'est PAS exécuté. Il est lu par le compilateur "protoc"
+// qui GÉNÈRE du code automatiquement :
+//   - en Python : python/helloworld_pb2.py et python/helloworld_pb2_grpc.py
+//   - en Go     : go/pb/helloworld.pb.go et go/pb/helloworld_grpc.pb.go
+//
+// Comme Python et Go utilisent le MÊME fichier, ils "parlent la même langue"
+// et peuvent donc communiquer entre eux, même si les langages sont différents.
+// =====================================================================
+
+// On utilise la version 3 de la syntaxe Protocol Buffers.
+syntax = "proto3";
+
+// Nom du "package" protobuf (sert d'espace de noms, évite les conflits de noms).
+package helloworld;
+
+// Option utilisée UNIQUEMENT par le générateur Go :
+//   "example.com/grpc-td/pb"  -> chemin d'import du package Go généré
+//   ";pb"                     -> nom du package Go (on écrira pb.HelloRequest en Go)
+// Python ignore cette ligne.
+option go_package = "example.com/grpc-td/pb;pb";
+
+// ---------------------------------------------------------------------
+// LE SERVICE : la liste des fonctions appelables à distance.
+// ---------------------------------------------------------------------
+// "Greeter" = le nom du service.
+// "SayHello" = la fonction que le CLIENT va appeler et que le SERVEUR va exécuter.
+// Elle prend un HelloRequest en entrée et renvoie un HelloReply.
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloReply);
+}
+
+// ---------------------------------------------------------------------
+// LES MESSAGES : la forme des données échangées.
+// ---------------------------------------------------------------------
+// Les numéros (= 1, = 2) ne sont PAS des valeurs par défaut !
+// Ce sont des "numéros de champ" : dans le message binaire envoyé sur le réseau,
+// les champs sont identifiés par ce numéro (et pas par leur nom).
+// => il ne faut jamais les changer une fois que le contrat est utilisé.
+
+// Ce que le CLIENT envoie au serveur.
+message HelloRequest {
+  string texte = 1;   // le texte saisi au clavier par l'utilisateur
+  int32 nombre = 2;   // le nombre aléatoire généré par le client
+}
+
+// Ce que le SERVEUR renvoie au client.
+message HelloReply {
+  string message = 1; // la phrase de réponse construite par le serveur
+}
